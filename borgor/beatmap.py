@@ -478,13 +478,3 @@ class Beatmap:
                 continue
 
             self.__dict__[string_to_key(k)] = v
-
-import os
-song_folder = '/mnt/c/Users/imeas/AppData/Local/osu!/Songs'
-for map_path in os.listdir(song_folder):
-    for m in os.listdir(f'{song_folder}/{map_path}'):
-        if not m.endswith('.osu'):
-            continue
-
-        with open(f'{song_folder}/{map_path}/{m}', 'rb') as f: 
-            balls = Beatmap(f.read())
