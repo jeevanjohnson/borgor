@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
 	name = "borgor",
-	version = "0.1.1",
+	version = "0.1.3",
 	author = "coverosu",
 	author_email = 'coverosu@gmail.com',
 	description = "An osu! python package.",

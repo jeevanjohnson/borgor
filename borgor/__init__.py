@@ -3,6 +3,7 @@ __author__ = 'coverosu'
 __license__ = 'MIT'
 __copyright__ = 'Copyright 2020 coverosu'
 
+from .akatsukiapi import *
 from .osuapiv2 import *
 from .beatmap import *
 from .replay import *
