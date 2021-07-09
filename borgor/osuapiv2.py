@@ -8,7 +8,6 @@ from enum import unique
 from typing import Union
 from typing import Optional
 from aiohttp import ClientSession
-from functools import cached_property
 
 @unique
 class RankingType(Enum):
