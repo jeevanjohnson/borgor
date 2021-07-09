@@ -26,6 +26,13 @@ class BeatmapType(Enum):
     Pending = 'pending'
     Ranked = 'ranked'
 
+str_to_num = {
+    'osu': 0,
+    'taiko': 1,
+    'fruits': 2,
+    'mania': 3
+}
+
 @unique
 class Gamemode(Enum):
     STD = 'osu'
@@ -33,14 +40,13 @@ class Gamemode(Enum):
     Ctb = 'fruits'
     Mania = 'mania'
 
-    @cached_property
-    def number(self) -> int:
-        return {
-            'osu': 0,
-            'taiko': 1,
-            'fruits': 2,
-            'mania': 3
-        }[self._value_]
+    def _as_int(self) -> int:
+        """Use this if `Gamemode.as_int` doesn't work"""
+        return str_to_num[self._value_]
+
+    @property
+    def as_int(self) -> int:
+        return str_to_num[self._value_]
     
     @classmethod
     def from_int(cls, i: int) -> 'Gamemode':
