@@ -1,47 +1,168 @@
 import lzma
 import struct
+from enum import Enum
 from enum import unique 
-from enum import IntEnum
 from enum import IntFlag
+from textwrap import wrap
 from typing import Optional
-from .borgor import Gamemode
+
+str_to_num = {
+    'osu': 0,
+    'taiko': 1,
+    'fruits': 2,
+    'mania': 3
+}
+
+@unique
+class Gamemode(Enum):
+    STD = 'osu'
+    Taiko = 'taiko'
+    Ctb = 'fruits'
+    Mania = 'mania'
+
+    def _as_int(self) -> int:
+        """Use this if `Gamemode.as_int` doesn't work"""
+        return str_to_num[self._value_]
+
+    @property
+    def as_int(self) -> int:
+        return str_to_num[self._value_]
+    
+    @classmethod
+    def from_int(cls, i: int) -> 'Gamemode':
+        return (cls.STD, cls.Taiko, cls.Ctb, cls.Mania)[i]
 
 @unique
 class Mods(IntFlag):
-    NOMOD       = 0
-    NOFAIL      = 1 << 0
-    EASY        = 1 << 1
+    NOMOD = 0
+    NOFAIL = 1 << 0
+    EASY = 1 << 1
     TOUCHSCREEN = 1 << 2 # old: 'NOVIDEO'
-    HIDDEN      = 1 << 3
-    HARDROCK    = 1 << 4
+    HIDDEN = 1 << 3
+    HARDROCK = 1 << 4
     SUDDENDEATH = 1 << 5
-    DOUBLETIME  = 1 << 6
-    RELAX       = 1 << 7
-    HALFTIME    = 1 << 8
-    NIGHTCORE   = 1 << 9
-    FLASHLIGHT  = 1 << 10
-    AUTOPLAY    = 1 << 11
-    SPUNOUT     = 1 << 12
-    AUTOPILOT   = 1 << 13
-    PERFECT     = 1 << 14
-    KEY4        = 1 << 15
-    KEY5        = 1 << 16
-    KEY6        = 1 << 17
-    KEY7        = 1 << 18
-    KEY8        = 1 << 19
-    FADEIN      = 1 << 20
-    RANDOM      = 1 << 21
-    CINEMA      = 1 << 22
-    TARGET      = 1 << 23
-    KEY9        = 1 << 24
-    KEYCOOP     = 1 << 25
-    KEY1        = 1 << 26
-    KEY3        = 1 << 27
-    KEY2        = 1 << 28
-    SCOREV2     = 1 << 29
-    MIRROR      = 1 << 30
+    DOUBLETIME = 1 << 6
+    RELAX = 1 << 7
+    HALFTIME = 1 << 8
+    NIGHTCORE = 1 << 9
+    FLASHLIGHT = 1 << 10
+    AUTOPLAY = 1 << 11
+    SPUNOUT = 1 << 12
+    AUTOPILOT = 1 << 13
+    PERFECT = 1 << 14
+    KEY4 = 1 << 15
+    KEY5 = 1 << 16
+    KEY6 = 1 << 17
+    KEY7 = 1 << 18
+    KEY8 = 1 << 19
+    FADEIN = 1 << 20
+    RANDOM = 1 << 21
+    CINEMA = 1 << 22
+    TARGET = 1 << 23
+    KEY9 = 1 << 24
+    KEYCOOP = 1 << 25
+    KEY1 = 1 << 26
+    KEY3 = 1 << 27
+    KEY2 = 1 << 28
+    SCOREV2 = 1 << 29
+    MIRROR = 1 << 30
 
-    SPEED_CHANGING = DOUBLETIME | NIGHTCORE | HALFTIME
+    def __repr__(self) -> str:
+        """
+        Return a string with readable std mods.
+        Used to convert a mods number for oppai
+        :param m: mods bitwise number
+        :return: readable mods string, eg HDDT
+        """
+
+        if not self:
+            return 'NM'
+
+        # dt/nc is a special case, as osu! will send
+        # the mods as 'DTNC' while only NC is applied.
+        if self & Mods.NIGHTCORE:
+            self &= ~Mods.DOUBLETIME
+
+        return ''.join(v for k, v in mod_to_str.items() if self & k)
+
+    @classmethod
+    def from_str(cls, s: str):
+        final_mods = 0
+        for m in wrap(s.lower(), 2):
+            if m not in str_to_mod:
+                continue
+            
+            final_mods += str_to_mod[m]
+        
+        return cls(final_mods)
+
+str_to_mod = {
+    'nm': Mods.NOMOD,
+    'ez': Mods.EASY,
+    'td': Mods.TOUCHSCREEN,
+    'hd': Mods.HIDDEN,
+    'hr': Mods.HARDROCK,
+    'sd': Mods.SUDDENDEATH,
+    'dt': Mods.DOUBLETIME,
+    'rx': Mods.RELAX,
+    'ht': Mods.HALFTIME,
+    'nc': Mods.NIGHTCORE,
+    'fl': Mods.FLASHLIGHT,
+    'au': Mods.AUTOPLAY,
+    'so': Mods.SPUNOUT,
+    'ap': Mods.AUTOPILOT,
+    'pf': Mods.PERFECT,
+    'k1': Mods.KEY1, 
+    'k2': Mods.KEY2, 
+    'k3': Mods.KEY3, 
+    'k4': Mods.KEY4, 
+    'k5': Mods.KEY5, 
+    'k6': Mods.KEY6, 
+    'k7': Mods.KEY7, 
+    'k8': Mods.KEY8, 
+    'k9': Mods.KEY9,
+    'fi': Mods.FADEIN,
+    'rn': Mods.RANDOM,
+    'cn': Mods.CINEMA,
+    'tp': Mods.TARGET,
+    'v2': Mods.SCOREV2,
+    'co': Mods.KEYCOOP,
+    'mi': Mods.MIRROR
+}
+
+mod_to_str = {
+    Mods.NOFAIL: 'NF',
+    Mods.EASY: 'EZ',
+    Mods.TOUCHSCREEN: 'TD',
+    Mods.HIDDEN: 'HD',
+    Mods.HARDROCK: 'HR',
+    Mods.SUDDENDEATH: 'SD',
+    Mods.DOUBLETIME: 'DT',
+    Mods.RELAX: 'RX',
+    Mods.HALFTIME: 'HT',
+    Mods.NIGHTCORE: 'NC',
+    Mods.FLASHLIGHT: 'FL',
+    Mods.AUTOPLAY: 'AU',
+    Mods.SPUNOUT: 'SO',
+    Mods.AUTOPILOT: 'AP',
+    Mods.PERFECT: 'PF',
+    Mods.KEY4: 'K4',
+    Mods.KEY5: 'K5',
+    Mods.KEY6: 'K6',
+    Mods.KEY7: 'K7',
+    Mods.KEY8: 'K8',
+    Mods.FADEIN: 'FI',
+    Mods.RANDOM: 'RN',
+    Mods.CINEMA: 'CN',
+    Mods.TARGET: 'TP',
+    Mods.KEY9: 'K9',
+    Mods.KEYCOOP: 'CO',
+    Mods.KEY1: 'K1',
+    Mods.KEY3: 'K3',
+    Mods.KEY2: 'K2',
+    Mods.SCOREV2: 'V2',
+    Mods.MIRROR: 'MI'
+}
 
 @unique
 class Key(IntFlag):
@@ -129,7 +250,7 @@ class Replay:
         return replay
     
     def parse(self) -> None:
-        self.mode = Gamemode(self.read_byte())
+        self.mode = Gamemode.from_int(self.read_byte())
         self.version = self.read_int()
         self.beatmap_md5 = self.read_string()
         self.player_name = self.read_string()
