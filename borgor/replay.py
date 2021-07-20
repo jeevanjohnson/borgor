@@ -4,13 +4,7 @@ from enum import unique
 from enum import IntEnum
 from enum import IntFlag
 from typing import Optional
-
-@unique
-class GameMode(IntEnum):
-    Standard = 0
-    Taiko = 1
-    CatchTheBeat = 2
-    Osumania = 3
+from .borgor import Gamemode
 
 @unique
 class Mods(IntFlag):
@@ -49,6 +43,7 @@ class Mods(IntFlag):
 
     SPEED_CHANGING = DOUBLETIME | NIGHTCORE | HALFTIME
 
+@unique
 class Key(IntFlag):
     M1    = 1 << 0
     M2    = 1 << 1
@@ -83,7 +78,7 @@ class Frame:
 
     @classmethod
     def from_raw_frame(cls, raw_frame: bytes) -> 'Frame':
-        w, x, y, z, = raw_frame.decode().split('|')
+        w, x, y, z = raw_frame.decode().split('|')
         return cls(
             float(w), float(x), 
             float(y), Key(int(z))
@@ -95,7 +90,7 @@ class Replay:
         self._data = raw_replay
         self.offset = 0
 
-        self.mode: Optional[GameMode] = None
+        self.mode: Optional[Gamemode] = None
         self.version: Optional[int] = None
         self.beatmap_md5: Optional[str] = None
         self.replay_md5: Optional[str] = None
@@ -134,7 +129,7 @@ class Replay:
         return replay
     
     def parse(self) -> None:
-        self.mode = self.read_byte()
+        self.mode = Gamemode(self.read_byte())
         self.version = self.read_int()
         self.beatmap_md5 = self.read_string()
         self.player_name = self.read_string()
@@ -151,7 +146,6 @@ class Replay:
         self.mods = Mods(self.read_int())
         self.bar_graph = [LifeBar.from_raw_bar(x) for x in self.read_string().split('|')]
         self.timestamp = self.read_long_long()
-        
         raw_frames: list[bytes] = lzma.decompress(self.read_raw(self.read_int())).split(b',')
         self.frames = [Frame.from_raw_frame(x) for x in raw_frames if x]
 
@@ -159,6 +153,55 @@ class Replay:
         
         if self.mods & Mods.TARGET:
             self.additional_mods = self.read_double()
+
+    def build(self) -> bytes:
+        buffer = bytearray()
+        buffer += self.write_byte(self.mode._value_)
+        buffer += self.write_int(self.version)
+        buffer += self.write_string(self.beatmap_md5)
+        buffer += self.write_string(self.player_name)
+        buffer += self.write_string(self.replay_md5)
+        buffer += self.write_short(self.n300)
+        buffer += self.write_short(self.n100)
+        buffer += self.write_short(self.n50)
+        buffer += self.write_short(self.geki)
+        buffer += self.write_short(self.katu)
+        buffer += self.write_short(self.miss)
+        buffer += self.write_int(self.total_score)
+        buffer += self.write_short(self.combo)
+        buffer += self.write_byte(self.perfect)
+        buffer += self.write_int(self.mods._value_)
+        
+        bar_graph = '0,|' + '|'.join([
+            f'{lifebar.current_hp},{lifebar.delta_time}' 
+            for lifebar in self.bar_graph
+        ])
+        
+        buffer += self.write_string(bar_graph)
+        buffer += self.write_long_long(self.timestamp)
+
+        raw_frames = lzma.compress(
+            b','.join([
+                f'{frame.delta_time}|{frame.x}|{frame.y}|{int(frame.pressed)}'.encode() 
+                for frame in self.frames
+            ])
+        )
+
+        buffer += self.write_int(len(raw_frames))
+        buffer += raw_frames
+        
+        buffer += self.write_long_long(self.score_id or 0)
+
+        if self.mods & Mods.TARGET:
+            buffer += self.write_double(self.additional_mods)
+
+        if (d := bytes(buffer) )== self._data:
+            print
+        else:
+            p = len(self._data)
+            print
+
+        return bytes(buffer)
     
     def read_byte(self) -> int:
         val, = struct.unpack('<b', self.data[:1])
@@ -211,3 +254,47 @@ class Replay:
         val = self.data[:length]
         self.offset += length
         return val
+
+    def write_double(self, i: int) -> int:
+        return struct.pack('<d', i)
+
+    def write_uleb128(self, num: int) -> bytes:
+        if num == 0:
+            return bytearray(b'\x00')
+
+        ret = bytearray()
+        length = 0
+
+        while num > 0:
+            ret.append(num & 0b01111111)
+            num >>= 7
+            if num != 0:
+                ret[length] |= 0b10000000
+            length += 1
+
+        return bytes(ret)
+
+    def write_string(self, string: str) -> bytes:
+        s = string.encode()
+        return b'\x0b' + self.write_uleb128(len(s)) + s
+
+    def write_int(self, i: int) -> bytes:
+        return struct.pack('<i', i)
+
+    def write_unsigned_int(self, i: int) -> bytes:
+        return struct.pack('<I', i)
+
+    def write_float(self, f: float) -> bytes:
+        return struct.pack('<f', f)
+
+    def write_byte(self, b: int) -> bytes:
+        return struct.pack('<b', b)
+
+    def write_unsigned_byte(self, b: int) -> bytes:
+        return struct.pack('<B', b)
+
+    def write_short(self, s: int) -> bytes:
+        return struct.pack('<h', s)
+
+    def write_long_long(self, l: int) -> bytes:
+        return struct.pack('<q', l)

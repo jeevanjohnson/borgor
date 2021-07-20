@@ -171,6 +171,27 @@ class OsuApiV2:
             params = params
         )
 
+    async def get_beatmap(
+        self, bmap_id: int,
+        params: dict = {}
+    ) -> Optional[Union[list[dict], dict]]:
+        if not self.token or self.token.expired:
+            await self.get_access_token()
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+        headers |= self.token.headers
+    
+        url = ('https://osu.ppy.sh/api/v2'
+               f'/beatmaps/{bmap_id}')
+        
+        return await self.get_json(
+            url, headers = headers, 
+            params = params
+        )
+
     async def get_user_recent_activity(
         self, userid: int, params: dict = {}
     ) -> Optional[Union[list[dict], dict]]:
